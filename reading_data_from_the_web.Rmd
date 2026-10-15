@@ -1,0 +1,9 @@
+---
+title: "Reading Data from the Web"
+output: github_document
+date: "2026-10-15"
+---
+
+```{r}
+
+```
