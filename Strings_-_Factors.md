@@ -112,3 +112,223 @@ as.numeric(vec_sex)
 ```
 
     ## [1] 1 1 2 2
+
+## Import NSHUD
+
+``` r
+url = "https://www.samhsa.gov/data/sites/default/files/NSDUHsaeShortTermCHG2015/NSDUHsaeShortTermCHG2015.htm"
+
+drug_use_html = 
+  read_html(url)
+```
+
+Pull the table out - bringing in a table - cleaning the table
+
+``` r
+marj_df = 
+  drug_use_html |>
+  html_table() |>
+  first() |>
+  slice(-1) |>
+  select(-contains("P Value")) |>
+  pivot_longer(
+    -State,
+    names_to = "age_year",
+    values_to = "prev"
+  ) |>
+  separate(age_year, into = c("age", "year"), sep = "\\(") |>
+  mutate(
+    year = str_replace(year, "\\)", ""),
+    prev = str_replace(prev, "[a-c]", ""),
+    prev = as.numeric(prev)
+  )
+marj_df
+```
+
+    ## # A tibble: 560 × 4
+    ##    State      age   year       prev
+    ##    <chr>      <chr> <chr>     <dbl>
+    ##  1 Total U.S. 12+   2013-2014 12.9 
+    ##  2 Total U.S. 12+   2014-2015 13.4 
+    ##  3 Total U.S. 12-17 2013-2014 13.3 
+    ##  4 Total U.S. 12-17 2014-2015 12.9 
+    ##  5 Total U.S. 18-25 2013-2014 31.8 
+    ##  6 Total U.S. 18-25 2014-2015 32.1 
+    ##  7 Total U.S. 26+   2013-2014  9.63
+    ##  8 Total U.S. 26+   2014-2015 10.2 
+    ##  9 Total U.S. 18+   2013-2014 12.9 
+    ## 10 Total U.S. 18+   2014-2015 13.4 
+    ## # ℹ 550 more rows
+
+make a quick plot
+
+``` r
+marj_df |>
+  filter(age == "12-17") |>
+  mutate(State = fct_reorder(State, prev)) |>
+  ggplot(aes(x= State, y = prev, color = year)) + 
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+![](Strings_-_Factors_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+\## NYC Airbnb
+
+``` r
+data(nyc_airbnb) 
+
+nyc_airbnb |>
+  filter(
+    neighbourhood_group == "Manhattan",
+    price < 1000) |>
+  mutate(neighbourhood = fct_reorder(neighbourhood, price)) |>
+  ggplot(aes(x = neighbourhood, y =price)) + 
+  geom_boxplot() +
+  coord_flip()
+```
+
+![](Strings_-_Factors_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+\## Restaurant inspections
+
+``` r
+data("rest_inspec")
+
+rest_inspec = 
+  rest_inspec |>
+  rename(borough = boro)
+
+rest_inspec |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+
+    ## # A tibble: 6 × 9
+    ##   borough           A     B     C  `NA`     N     P     Z     G
+    ##   <chr>         <int> <int> <int> <int> <int> <int> <int> <int>
+    ## 1 0                33     9     6    67    NA    NA    NA    NA
+    ## 2 Bronx         14071  2611   976 17190   161   236   605    NA
+    ## 3 Brooklyn      38896  6423  2194 49825   345   782  1168     2
+    ## 4 Manhattan     61675  9107  3600 76581   591   924  1816     3
+    ## 5 Queens        36258  5526  1996 44136   350   604  1287    NA
+    ## 6 Staten Island  5410   855   248  6315    71    61   116    NA
+
+``` r
+rest_inspec = 
+  rest_inspec |>
+  filter(
+    borough != "0", 
+    grade %in% c("A", "B", "C")
+  )
+rest_inspec |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+
+    ## # A tibble: 5 × 4
+    ##   borough           A     B     C
+    ##   <chr>         <int> <int> <int>
+    ## 1 Bronx         14071  2611   976
+    ## 2 Brooklyn      38896  6423  2194
+    ## 3 Manhattan     61675  9107  3600
+    ## 4 Queens        36258  5526  1996
+    ## 5 Staten Island  5410   855   248
+
+Look for pizza places
+
+``` r
+rest_inspec |>
+  filter(str_detect(dba, "Pizza")) |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+
+    ## # A tibble: 4 × 3
+    ##   borough       A     B
+    ##   <chr>     <int> <int>
+    ## 1 Bronx        15     3
+    ## 2 Brooklyn     15    NA
+    ## 3 Manhattan    13     3
+    ## 4 Queens       11     4
+
+this is better
+
+``` r
+rest_inspec |>
+  mutate(dba = str_to_upper(dba)) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+
+    ## # A tibble: 5 × 4
+    ##   borough           A     B     C
+    ##   <chr>         <int> <int> <int>
+    ## 1 Bronx          1201   261    98
+    ## 2 Brooklyn       1919   291    95
+    ## 3 Manhattan      2091   400    96
+    ## 4 Queens         1695   239    78
+    ## 5 Staten Island   328    60    15
+
+``` r
+rest_inspec |>
+  mutate(dba = str_to_upper(dba)) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+
+![](Strings_-_Factors_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+``` r
+rest_inspec |>
+  mutate(
+    dba = str_to_upper(dba),
+    borough = fct_infreq(borough)) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+
+![](Strings_-_Factors_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
+
+Order of operations matters This does not work
+
+``` r
+rest_inspec |>
+  mutate(
+    dba = str_to_upper(dba),
+    borough = fct_infreq(borough),
+    borough = str_replace(borough, "Manhattan", "The City")) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+
+![](Strings_-_Factors_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+
+This would work
+
+``` r
+rest_inspec |>
+  mutate(
+    dba = str_to_upper(dba),
+    borough = fct_infreq(borough),
+    borough = fct_recode(borough, "The City" = "Manhattan")) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+
+![](Strings_-_Factors_files/figure-gfm/unnamed-chunk-19-1.png)<!-- -->

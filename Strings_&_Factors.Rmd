@@ -7,6 +7,7 @@ date: "2026-10-20"
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(rvest)
+library(p8105.datasets)
 ```
 
 ## strings and regex
@@ -88,5 +89,161 @@ as.numeric(vec_sex)
 vec_sex = fct_relevel(vec_sex, "male")
 
 as.numeric(vec_sex)
+```
+
+## Import NSHUD
+
+```{r}
+url = "https://www.samhsa.gov/data/sites/default/files/NSDUHsaeShortTermCHG2015/NSDUHsaeShortTermCHG2015.htm"
+
+drug_use_html = 
+  read_html(url)
+```
+
+Pull the table out 
+- bringing in a table 
+- cleaning the table 
+```{r}
+marj_df = 
+  drug_use_html |>
+  html_table() |>
+  first() |>
+  slice(-1) |>
+  select(-contains("P Value")) |>
+  pivot_longer(
+    -State,
+    names_to = "age_year",
+    values_to = "prev"
+  ) |>
+  separate(age_year, into = c("age", "year"), sep = "\\(") |>
+  mutate(
+    year = str_replace(year, "\\)", ""),
+    prev = str_replace(prev, "[a-c]", ""),
+    prev = as.numeric(prev)
+  )
+marj_df
+```
+
+make a quick plot 
+
+```{r}
+marj_df |>
+  filter(age == "12-17") |>
+  mutate(State = fct_reorder(State, prev)) |>
+  ggplot(aes(x= State, y = prev, color = year)) + 
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+## NYC Airbnb
+
+```{r}
+data(nyc_airbnb) 
+
+nyc_airbnb |>
+  filter(
+    neighbourhood_group == "Manhattan",
+    price < 1000) |>
+  mutate(neighbourhood = fct_reorder(neighbourhood, price)) |>
+  ggplot(aes(x = neighbourhood, y =price)) + 
+  geom_boxplot() +
+  coord_flip()
+```
+## Restaurant inspections 
+
+```{r}
+data("rest_inspec")
+
+rest_inspec = 
+  rest_inspec |>
+  rename(borough = boro)
+
+rest_inspec |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+
+```{r}
+rest_inspec = 
+  rest_inspec |>
+  filter(
+    borough != "0", 
+    grade %in% c("A", "B", "C")
+  )
+rest_inspec |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+Look for pizza places 
+```{r}
+rest_inspec |>
+  filter(str_detect(dba, "Pizza")) |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+```
+
+this is better
+```{r}
+rest_inspec |>
+  mutate(dba = str_to_upper(dba)) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  count(borough, grade) |>
+  pivot_wider(
+    names_from = grade,
+    values_from = n
+  )
+
+```
+
+```{r}
+rest_inspec |>
+  mutate(dba = str_to_upper(dba)) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+```{r}
+rest_inspec |>
+  mutate(
+    dba = str_to_upper(dba),
+    borough = fct_infreq(borough)) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+
+
+Order of operations matters
+This does not work 
+```{r}
+rest_inspec |>
+  mutate(
+    dba = str_to_upper(dba),
+    borough = fct_infreq(borough),
+    borough = str_replace(borough, "Manhattan", "The City")) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
+```
+
+This would work
+```{r}
+rest_inspec |>
+  mutate(
+    dba = str_to_upper(dba),
+    borough = fct_infreq(borough),
+    borough = fct_recode(borough, "The City" = "Manhattan")) |>
+  filter(str_detect(dba, "PIZZA")) |>
+  ggplot(aes(x = borough, fill = grade)) +
+  geom_bar()
 ```
 
